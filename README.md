@@ -1,7 +1,7 @@
 # Wordle
 
-Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go
-on the leaderboard, and practice rounds work offline.
+Guess the hidden word, from 4 to 14 letters, in six tries or more. Ranked
+rounds go on the leaderboard, and practice rounds work offline.
 
 Live at <https://wordle.uwuapps.org>. A PWA and its game API, both on Vercel.
 
@@ -29,8 +29,9 @@ bar.
 
 **Ranked** (online): `/api/round/new` picks the word and keeps it in
 `wordle_rounds`. The browser sends each guess and gets back the marks; the
-answer only comes back once the round is over. A solved round scores 600 for
-one guess down to 100 for six, and can be added to the leaderboard under a
+answer only comes back once the round is over. Points build up guess by
+guess, a first-try solve always scores the most, and a solved round can be
+added to the leaderboard under a
 name.
 
 **Practice** (offline, or when the API does not answer): the page picks a
@@ -39,6 +40,22 @@ Practice rounds count in the device's stats but never reach the leaderboard.
 
 Both use one rules file, `main-site/js/rules.js`, which the API imports too,
 so the two cannot mark a guess differently.
+
+**Tries** are one more than the word has letters, never fewer than six:
+a 12 letter word gets 13. A length keeps six tries when the word list has
+no more words of that length than that, so nobody can simply try them all;
+with today's list that is 14 letters (10 words). The number is worked out
+when a round starts and kept with it.
+
+**Scoring.** Each letter of the answer pays twice: once when a guess first
+shows it is in the word (green or gold), and once when a guess first shows
+where it goes (green). Each payment is 10 points times that guess's
+multiplier, which is the number of tries on the first guess down to 1 on the
+last. Solving adds 20 points per letter times the solving guess's
+multiplier. Re-guessing what is already known earns nothing, so stalling
+never pays, and a first-try solve is always the top score: 1,200 for 5
+letters, 6,240 for 12. A lost round scores 0. `scripts/check-rules.mjs`
+checks that no other way of solving reaches a first try's score.
 
 **Anti-cheat.** The answer never reaches the browser during a ranked round,
 and the score is worked out on the server. On top of that, the server times
@@ -53,8 +70,9 @@ deleted. Giving up takes two taps.
 
 ## First setup
 
-1. Run `migrations/001_wordle_schema.sql`, then
-   `migrations/002_wordle_anticheat.sql`, in the Supabase SQL editor.
+1. Run `migrations/001_wordle_schema.sql`, `002_wordle_anticheat.sql` and
+   `003_wordle_tries_by_length.sql`, in that order, in the Supabase SQL
+   editor.
 2. On the Vercel project (root directory `main-site`), set `SUPABASE_URL`
    and `SUPABASE_SERVICE_KEY` for the shared uwuapps project. See
    `main-site/.env.example`.
@@ -75,6 +93,7 @@ the next number.
 | --- | --- |
 | `001_wordle_schema.sql` | The rounds and leaderboard tables, both leaderboard views, and the start round, submit, stats and prune functions. |
 | `002_wordle_anticheat.sql` | Guess times and a flag on each round; submit needs the playing browser's `client_key` and refuses flagged rounds. |
+| `003_wordle_tries_by_length.sql` | Each round keeps its number of tries; start round takes it, and stats count wins past six guesses. |
 
 Every table has row level security on with no policies. Only the service role
 key, used by the Vercel functions, can read or write.

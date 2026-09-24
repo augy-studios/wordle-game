@@ -1,7 +1,7 @@
 // The word list, for practice rounds and for checking a guess before it is
 // sent. Precached by sw.js, so it loads offline.
 
-import { indexWords } from "./rules.js";
+import { indexWords, maxGuesses } from "./rules.js";
 
 const URL = "/wordlist.json";
 
@@ -31,6 +31,12 @@ export const wordsReady = () => words !== null;
 
 export function wordLengths() {
   return words ? [...words.keys()] : [];
+}
+
+// A new practice round's tries, from the word list: see maxGuesses. Six
+// until the list has loaded.
+export function triesFor(length) {
+  return maxGuesses(length, words?.get(length)?.list.length ?? 0);
 }
 
 export function isWord(word) {

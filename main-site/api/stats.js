@@ -1,7 +1,8 @@
 // POST /api/stats  { client_key }
 //   -> { played, wins, current_streak, best_streak, distribution }
 // Every ranked round this browser has finished, from the database.
-// distribution[i] is rounds solved in i + 1 guesses. A round left with a
+// distribution[i] is rounds solved in i + 1 guesses, at least six entries
+// and more once a long word is solved in more. A round left with a
 // guess in it, whether abandoned for a new one or left past a day, is a
 // loss.
 

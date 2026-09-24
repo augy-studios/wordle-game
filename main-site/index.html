@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <title>Wordle | UwU Apps</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline.">
+    <meta name="description" content="Guess the hidden word, from 4 to 14 letters, in six tries or more. Ranked rounds go on the leaderboard, and practice rounds work offline.">
 
     <script>
         (function () {
@@ -50,7 +50,7 @@
     <meta property="og:url" content="https://wordle.uwuapps.org/" />
     <meta property="og:title" content="Wordle | UwU Apps" />
     <meta property="og:site_name" content="UwU Apps" />
-    <meta property="og:description" content="Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline." />
+    <meta property="og:description" content="Guess the hidden word, from 4 to 14 letters, in six tries or more. Ranked rounds go on the leaderboard, and practice rounds work offline." />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -117,6 +117,7 @@
                 <div class="round-meta">
                     <span id="modeChip" class="chip"></span>
                     <span id="hardChip" class="chip hidden">Hard mode</span>
+                    <span id="scoreChip" class="chip hidden" aria-live="polite"></span>
                     <label class="length-pick">
                         <span class="visually-hidden">Word length</span>
                         <select id="lengthSelect" class="field select"></select>
@@ -183,8 +184,8 @@
                     <span data-icon="close"></span>
                 </button>
             </div>
-            <p class="help-text">Guess the hidden word in six tries. Type a word and press Enter. Each guess has to be
-                a real word of the right length.</p>
+            <p class="help-text">Guess the hidden word. Type a word and press Enter. Each guess has to be a real word of
+                the right length. You get one more try than the word has letters, and never fewer than six.</p>
             <div class="help-example" role="img" aria-label="Example: W in the right place, O in the wrong place, R not in the word">
                 <span class="tile filled correct">W</span><span class="tile filled present">O</span><span
                     class="tile filled absent">R</span><span class="tile filled">D</span><span class="tile filled">S</span>
@@ -195,12 +196,16 @@
                 <li><strong>Grey</strong>: not in the word.</li>
             </ul>
             <p class="modal-section-label">Ranked and practice</p>
-            <p class="help-text">Online, every round is ranked: solve it in one guess for 600 points, down to 100 on
-                the sixth, and add it to the leaderboard. Offline, you play practice rounds, which count in this
-                device's stats but not on the leaderboard.</p>
+            <p class="help-text">Online, every round is ranked. Each letter you find earns points, and finding where it
+                goes earns more. The earlier the guess, the bigger its multiplier: your first guess counts as many
+                times over as you have tries, your last just once. Solving adds a bonus for the whole word, so solving
+                on the first try always scores the most, and longer words score more. A lost round scores nothing.</p>
+            <p class="help-text">Offline, you play practice rounds, which count in this device's stats but not on the
+                leaderboard.</p>
             <p class="modal-section-label">Word length and hard mode</p>
-            <p class="help-text">Pick 4 to 14 letters on the game card; 5 is the classic. Hard mode, in Settings,
-                makes every green letter stay put and every gold letter get used again.</p>
+            <p class="help-text">Pick 4 to 14 letters on the game card; 5 is the classic. A length with only a few
+                possible words keeps six tries, so nobody can simply try them all. Hard mode, in Settings, makes every
+                green letter stay put and every gold letter get used again.</p>
             <p class="help-text">Giving up, or leaving a ranked round once you have guessed, counts as a loss.</p>
         </div>
     </div>

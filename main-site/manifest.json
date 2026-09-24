@@ -1,7 +1,7 @@
 {
     "name": "Wordle by UwU Apps",
     "short_name": "Wordle",
-    "description": "Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline.",
+    "description": "Guess the hidden word, from 4 to 14 letters, in six tries or more. Ranked rounds go on the leaderboard, and practice rounds work offline.",
     "icons": [{
             "src": "XWD-192.png",
             "type": "image/png",

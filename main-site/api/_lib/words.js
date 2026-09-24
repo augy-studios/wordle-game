@@ -13,6 +13,10 @@ export function wordLengths() {
   return [...WORDS.keys()];
 }
 
+export function poolSize(length) {
+  return WORDS.get(length)?.list.length ?? 0;
+}
+
 export function hasWord(word) {
   return WORDS.get(word.length)?.set.has(word) ?? false;
 }

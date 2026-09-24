@@ -130,11 +130,19 @@ Kept simple, and all on the server:
 
 There is no rate limiting.
 
-| Score | |
+| Scoring | |
 | --- | --- |
-| Solved in 1 guess | 600 |
-| Each guess after that | -100, down to 100 on the sixth |
+| Tries | `max(6, letters + 1)`, or 6 where the word list has no more words of that length than that. Fixed when the round starts, as `max_guesses`. |
+| Multiplier | Tries on the first guess, down to 1 on the last. |
+| A letter first shown to be in the word (green or gold) | 10 x the guess's multiplier |
+| A letter first shown in place (green) | 10 x the guess's multiplier |
+| Solving | 20 x letters x the solving guess's multiplier |
 | Lost or given up | 0, and cannot be submitted |
+
+All in `js/rules.js` (`maxGuesses`, `tally`, `scoreRound`), which the API
+imports. A first-try solve is always the highest score: 1,200 for 5 letters,
+6,240 for 12. During a ranked round the page shows the points so far and
+what each guess added.
 
 Leaderboard names are 20 characters at most: letters in any script, digits,
 spaces, hyphens and underscores, with a word filter (`api/_lib/names.js`,

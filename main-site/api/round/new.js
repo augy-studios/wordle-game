@@ -8,7 +8,7 @@
 
 import { randomInt } from "node:crypto";
 import { clientKey, endpoint, HttpError } from "../_lib/http.js";
-import { checkLength, pickAnswer, view } from "../_lib/game.js";
+import { checkLength, pickAnswer, triesFor, view } from "../_lib/game.js";
 import { rpc } from "../_lib/supabase.js";
 
 export default endpoint("POST", async ({ body }) => {
@@ -23,6 +23,7 @@ export default endpoint("POST", async ({ body }) => {
       p_answer: answer,
       p_length: length,
       p_hard_mode: hardMode,
+      p_max_guesses: triesFor(length),
     })) ?? [];
   if (!round) throw new HttpError(500, "server");
 

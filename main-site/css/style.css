@@ -220,7 +220,7 @@ body {
   font-size: 0.95rem;
 }
 
-/* The board. Six rows of --cols tiles. A tile is as big as the width and
+/* The board. --rows rows of --cols tiles. A tile is as big as the width and
    the height both allow, so 4 letters and 14 letters both fit a phone. */
 .guesses {
   --gap: 6px;
@@ -228,7 +228,7 @@ body {
     16px,
     min(
       calc((min(100vw, 720px) - 80px - (var(--cols, 5) - 1) * var(--gap)) / var(--cols, 5)),
-      max(34px, calc((100dvh - 400px) / 6))
+      max(34px, calc((100dvh - 380px - (var(--rows, 6) - 1) * var(--gap)) / var(--rows, 6)))
     ),
     58px
   );
@@ -656,7 +656,7 @@ body {
       16px,
       min(
         calc((100vw - 48px - (var(--cols, 5) - 1) * var(--gap)) / var(--cols, 5)),
-        max(34px, calc((100dvh - 380px) / 6))
+        max(34px, calc((100dvh - 360px - (var(--rows, 6) - 1) * var(--gap)) / var(--rows, 6)))
       ),
       56px
     );

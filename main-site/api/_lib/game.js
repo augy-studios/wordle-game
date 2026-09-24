@@ -2,10 +2,14 @@
 // shared with the page's practice rounds; this adds what only the server
 // may do: pick the answer, keep it, and check guesses against it.
 
-import { DEFAULT_LENGTH, MAX_GUESSES, evaluate, hardModeProblem, normaliseWord, scoreFor } from "../../js/rules.js";
+import { DEFAULT_LENGTH, evaluate, hardModeProblem, maxGuesses, normaliseWord, scoreRound } from "../../js/rules.js";
 import { HttpError } from "./http.js";
 import { rest } from "./supabase.js";
-import { hasWord, pickWord, wordLengths } from "./words.js";
+import { hasWord, pickWord, poolSize, wordLengths } from "./words.js";
+
+// A new round's tries, from the word list as it is now. Kept on the round,
+// so a later change to the list never changes a round already started.
+export const triesFor = (length) => maxGuesses(length, poolSize(length));
 
 // A round can be played, and a solved one submitted, for a day. Left with a
 // guess in it past that, it counts as a loss in the player's stats.
@@ -72,9 +76,9 @@ export function applyGuess(round, text, at = Date.now()) {
   round.guesses = [...round.guesses, guess];
   if (guess === round.answer) {
     round.solved = true;
-    round.score = scoreFor(round.guesses.length);
+    round.score = scoreRound(rowsOf(round), round.length, round.max_guesses, true);
     round.finished_at = new Date().toISOString();
-  } else if (round.guesses.length >= MAX_GUESSES) {
+  } else if (round.guesses.length >= round.max_guesses) {
     round.lost = true;
     round.score = 0;
     round.finished_at = new Date().toISOString();
@@ -96,7 +100,7 @@ export function view(round, now = Date.now()) {
   const out = {
     round_id: round.id,
     length: round.length,
-    max_guesses: MAX_GUESSES,
+    max_guesses: round.max_guesses,
     hard_mode: round.hard_mode,
     rows: rowsOf(round),
     solved: round.solved,

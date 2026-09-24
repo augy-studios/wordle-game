@@ -7,11 +7,11 @@
 
 import { api } from "./api.js";
 import { openLeaderboard } from "./leaderboard.js";
-import { DEFAULT_LENGTH, MAX_GUESSES, evaluate, hardModeProblem, scoreFor } from "./rules.js";
+import { DEFAULT_LENGTH, MIN_GUESSES, evaluate, hardModeProblem, scoreRound, tally } from "./rules.js";
 import { getSettings, saveSettings } from "./settings.js";
 import { openStats, recordLocal } from "./stats.js";
 import { hydrateIcons, isModalOpen, store } from "./ui.js";
-import { isWord, loadWords, randomWord, wordLengths, wordsReady } from "./words.js";
+import { isWord, loadWords, randomWord, triesFor, wordLengths, wordsReady } from "./words.js";
 
 const ROUND_STORAGE = "wordle.round";
 const GONE = new Set(["round_not_found", "round_over", "round_expired"]);
@@ -30,8 +30,9 @@ const $ = (id) => document.getElementById(id);
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // The round on screen. The same shape for both modes:
-//   { mode, id, length, hard_mode, rows: [{ guess, marks }], solved, lost,
-//     gave_up, score, answer, expired }
+//   { mode, id, length, tries, hard_mode, rows: [{ guess, marks }], solved,
+//     lost, gave_up, score, answer, expired }
+// `tries` is fixed when the round starts: see maxGuesses in rules.js.
 // A practice round also carries `secret`, its answer.
 let round = null;
 let typed = "";
@@ -45,6 +46,7 @@ function fromView(v) {
     mode: "ranked",
     id: v.round_id,
     length: v.length,
+    tries: v.max_guesses ?? MIN_GUESSES,
     hard_mode: v.hard_mode,
     rows: v.rows ?? [],
     solved: v.solved,
@@ -66,6 +68,7 @@ function practiceRound(length, hardMode) {
     mode: "practice",
     id: `p-${Date.now().toString(36)}`,
     length,
+    tries: triesFor(length),
     hard_mode: hardMode,
     rows: [],
     solved: false,
@@ -85,19 +88,23 @@ function restorePractice(saved) {
   if (typeof secret !== "string" || !/^[a-z]+$/.test(secret)) return null;
   const guesses = Array.isArray(saved.guesses) ? saved.guesses : [];
   if (!guesses.every((g) => typeof g === "string" && g.length === secret.length && /^[a-z]+$/.test(g))) return null;
-  if (guesses.length > MAX_GUESSES) return null;
+  // Kept with the round, since the word list may not have loaded yet.
+  const tries = Number.isInteger(saved.tries) && saved.tries >= MIN_GUESSES && saved.tries <= 64 ? saved.tries : MIN_GUESSES;
+  if (guesses.length > tries) return null;
 
   const solved = guesses.includes(secret);
+  const rows = guesses.map((guess) => ({ guess, marks: evaluate(guess, secret) }));
   return {
     mode: "practice",
     id: typeof saved.id === "string" ? saved.id : `p-${Date.now().toString(36)}`,
     length: secret.length,
+    tries,
     hard_mode: saved.hard_mode === true,
-    rows: guesses.map((guess) => ({ guess, marks: evaluate(guess, secret) })),
+    rows,
     solved,
-    lost: !solved && guesses.length >= MAX_GUESSES,
+    lost: !solved && guesses.length >= tries,
     gave_up: false,
-    score: solved ? scoreFor(guesses.indexOf(secret) + 1) : 0,
+    score: scoreRound(rows, secret.length, tries, solved),
     answer: null,
     expired: false,
     secret,
@@ -115,6 +122,7 @@ function save() {
     store.set(ROUND_STORAGE, {
       mode: "practice",
       id: round.id,
+      tries: round.tries,
       hard_mode: round.hard_mode,
       secret: round.secret,
       guesses: round.rows.map((r) => r.guess),
@@ -144,8 +152,9 @@ function showPanel(id) {
 function buildBoard() {
   const board = $("board");
   board.style.setProperty("--cols", String(round.length));
+  board.style.setProperty("--rows", String(round.tries));
   board.innerHTML = Array.from(
-    { length: MAX_GUESSES },
+    { length: round.tries },
     (_, r) =>
       `<div class="guess-row" role="img" data-row="${r}">${`<span class="tile"></span>`.repeat(round.length)}</div>`
   ).join("");
@@ -172,7 +181,7 @@ function paintRow(r, animate) {
 
 function paintTyping(popAt = -1) {
   const r = round.rows.length;
-  for (let n = r; n < MAX_GUESSES; n++) {
+  for (let n = r; n < round.tries; n++) {
     const el = rowEl(n);
     const letters = n === r && isLive(round) ? typed : "";
     [...el.children].forEach((tile, i) => {
@@ -260,7 +269,7 @@ function fillLengths() {
     saveSettings({ length: chosen });
   }
   const options = available.length ? available : [chosen];
-  select.innerHTML = options.map((n) => `<option value="${n}">${n} letters</option>`).join("");
+  select.innerHTML = options.map((n) => `<option value="${n}">${n} letters, ${triesFor(n)} tries</option>`).join("");
   select.value = String(chosen);
 }
 
@@ -270,6 +279,11 @@ function renderMeta() {
   $("modeChip").classList.toggle("practice", !ranked);
   $("modeChip").title = ranked ? "Can go on the leaderboard" : "Played in this browser. Cannot go on the leaderboard.";
   $("hardChip").classList.toggle("hidden", !round.hard_mode);
+  // Points so far, for a live ranked round. Practice rounds score nothing,
+  // and a finished round's score is on the result instead.
+  const points = ranked && isLive(round) ? tally(round.rows, round.tries) : null;
+  $("scoreChip").classList.toggle("hidden", points === null);
+  if (points !== null) $("scoreChip").textContent = `${points} points`;
 }
 
 function renderActions() {
@@ -359,6 +373,7 @@ async function submitGuess() {
   busy = true;
   disarmGiveUp();
   renderActions();
+  const before = tally(round.rows, round.tries);
   try {
     if (round.mode === "ranked") {
       round = fromView(await api.guess(round.id, guess));
@@ -366,8 +381,8 @@ async function submitGuess() {
       round.rows.push({ guess, marks: evaluate(guess, round.secret) });
       if (guess === round.secret) {
         round.solved = true;
-        round.score = scoreFor(round.rows.length);
-      } else if (round.rows.length >= MAX_GUESSES) {
+        round.score = scoreRound(round.rows, round.length, round.tries, true);
+      } else if (round.rows.length >= round.tries) {
         round.lost = true;
       }
     }
@@ -394,8 +409,10 @@ async function submitGuess() {
   }
   paintTyping();
   renderActions();
-  const left = MAX_GUESSES - round.rows.length;
-  if (left === 1) say("Last guess.");
+  renderMeta();
+  const gained = round.mode === "ranked" ? tally(round.rows, round.tries) - before : 0;
+  const left = round.tries - round.rows.length;
+  say([gained > 0 ? `+${gained} points.` : "", left === 1 ? "Last guess." : ""].filter(Boolean).join(" "));
 }
 
 // Giving up takes two taps, so a stray one does not end the round.
@@ -481,6 +498,7 @@ function finish() {
 
   $("keyboard").classList.add("hidden");
   $("roundActions").classList.add("hidden");
+  $("scoreChip").classList.add("hidden");
   $("result").classList.remove("hidden");
   paintTyping();
   say("");

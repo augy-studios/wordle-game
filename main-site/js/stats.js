@@ -5,12 +5,16 @@
 //                 database and read from /api/stats
 
 import { api } from "./api.js";
-import { MAX_GUESSES } from "./rules.js";
+import { MIN_GUESSES } from "./rules.js";
 import { escapeHtml, openModal, store } from "./ui.js";
 
 const STORAGE = "wordle.stats";
 
-const EMPTY = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: Array(MAX_GUESSES).fill(0) });
+// dist[n] is rounds solved in n + 1 guesses. Always at least six entries,
+// and longer once a long word is solved in more.
+const EMPTY = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: Array(MIN_GUESSES).fill(0) });
+
+const padDist = (dist) => Array.from({ length: Math.max(MIN_GUESSES, dist.length) }, (_, i) => (Number.isInteger(dist[i]) ? dist[i] : 0));
 
 function loadLocal() {
   const saved = store.getJson(STORAGE);
@@ -19,9 +23,7 @@ function loadLocal() {
   for (const k of ["played", "wins", "streak", "best"]) {
     if (Number.isInteger(saved[k]) && saved[k] >= 0) out[k] = saved[k];
   }
-  if (Array.isArray(saved.dist)) {
-    out.dist = out.dist.map((_, i) => (Number.isInteger(saved.dist[i]) ? saved.dist[i] : 0));
-  }
+  if (Array.isArray(saved.dist)) out.dist = padDist(saved.dist.slice(0, 64));
   return out;
 }
 
@@ -33,7 +35,10 @@ export function recordLocal({ won, guesses }) {
     s.wins += 1;
     s.streak += 1;
     s.best = Math.max(s.best, s.streak);
-    if (guesses >= 1 && guesses <= MAX_GUESSES) s.dist[guesses - 1] += 1;
+    if (guesses >= 1 && guesses <= 64) {
+      s.dist = padDist(s.dist.length < guesses ? [...s.dist, ...Array(guesses - s.dist.length).fill(0)] : s.dist);
+      s.dist[guesses - 1] += 1;
+    }
   } else {
     s.streak = 0;
   }
@@ -103,7 +108,7 @@ async function load() {
       wins: r.wins,
       streak: r.current_streak,
       best: r.best_streak,
-      dist: Array.from({ length: MAX_GUESSES }, (_, i) => r.distribution?.[i] ?? 0),
+      dist: padDist(Array.isArray(r.distribution) ? r.distribution : []),
     });
   } catch (err) {
     if (ticket !== loading) return;

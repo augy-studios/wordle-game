@@ -2,12 +2,77 @@
 // and the page imports it for practice rounds, so the two cannot drift.
 // No DOM and no Node APIs here: it has to run in both.
 
-export const MAX_GUESSES = 6;
+export const MIN_GUESSES = 6;
 export const DEFAULT_LENGTH = 5;
 
-// Solved on the first guess is 600, on the sixth 100. A lost round is 0.
-export function scoreFor(guessCount) {
-  return (MAX_GUESSES + 1 - guessCount) * 100;
+// One more try than the word has letters, never fewer than six. But only
+// where the word list has more words of that length than there would be
+// tries: otherwise a player could simply guess every word there is, so the
+// length stays at six. `poolSize` is how many words of that length exist.
+// A round's tries are fixed when it starts and kept with it.
+export function maxGuesses(length, poolSize) {
+  return poolSize > length + 1 ? Math.max(MIN_GUESSES, length + 1) : MIN_GUESSES;
+}
+
+// What a guess is worth: the first is times the number of tries, the last
+// times 1.
+export function multiplier(guessNumber, tries) {
+  return tries - guessNumber + 1;
+}
+
+// Scoring. Every letter of the answer is worth two finds: one for knowing it
+// is in the word (green or gold), one for knowing where (green). Each find
+// is paid once, at the multiplier of the guess that made it, so a gold that
+// later turns green earns its second half then, at a lower multiplier.
+// Solving adds the whole word again at the solving guess's multiplier.
+//
+// So each letter earns at most 2 x FIND_POINTS x the first multiplier, and
+// only by being green on the first guess; and the bonus is also biggest on
+// the first guess. Solving on the first try is always the highest score,
+// and longer words, with more letters and more tries, score more.
+export const FIND_POINTS = 10;
+export const SOLVE_POINTS = 20;
+
+// Points from finds so far, without the solving bonus. `rows` are
+// { guess, marks }, in order; `tries` is the round's number of tries.
+export function tally(rows, tries) {
+  const known = {};
+  const placed = new Set();
+  let total = 0;
+
+  rows.forEach(({ guess, marks }, i) => {
+    const found = {};
+    let newlyPlaced = 0;
+    [...guess].forEach((ch, p) => {
+      if (marks[p] !== "absent") found[ch] = (found[ch] ?? 0) + 1;
+      if (marks[p] === "correct" && !placed.has(p)) {
+        placed.add(p);
+        newlyPlaced++;
+      }
+    });
+    // A letter the answer has twice is known twice only once a guess shows
+    // both; each guess's marks never show more copies than the answer has.
+    let newlyKnown = 0;
+    for (const [ch, n] of Object.entries(found)) {
+      if (n > (known[ch] ?? 0)) {
+        newlyKnown += n - (known[ch] ?? 0);
+        known[ch] = n;
+      }
+    }
+    total += FIND_POINTS * (newlyKnown + newlyPlaced) * multiplier(i + 1, tries);
+  });
+  return total;
+}
+
+// The round's score. A lost round is 0, whatever it found on the way.
+export function scoreRound(rows, length, tries, solved) {
+  if (!solved) return 0;
+  return tally(rows, tries) + SOLVE_POINTS * length * multiplier(rows.length, tries);
+}
+
+// The highest score a round allows: solved on the first guess.
+export function bestScore(length, tries) {
+  return (2 * FIND_POINTS + SOLVE_POINTS) * length * tries;
 }
 
 // "correct", "present" or "absent" per letter. A repeated letter is only
