@@ -412,7 +412,16 @@ async function submitGuess() {
   renderMeta();
   const gained = round.mode === "ranked" ? tally(round.rows, round.tries) - before : 0;
   const left = round.tries - round.rows.length;
-  say([gained > 0 ? `+${gained} points.` : "", left === 1 ? "Last guess." : ""].filter(Boolean).join(" "));
+  // "+150 points", "Last guess." or "+150 points, last guess".
+  say(
+    gained > 0 && left === 1
+      ? `+${gained} points, last guess`
+      : gained > 0
+        ? `+${gained} points`
+        : left === 1
+          ? "Last guess."
+          : ""
+  );
 }
 
 // Giving up takes two taps, so a stray one does not end the round.
@@ -476,20 +485,20 @@ function finish() {
     : answer
       ? `It was ${answer}`
       : "Round over";
+  const flagged = ranked && round.solved && round.leaderboard_ok === false;
+  // "points" never ends a sentence with a full stop.
   $("resultScore").textContent = round.solved
     ? ranked
-      ? `${round.score} points.`
-      : "A practice round, so no points."
+      ? flagged
+        ? `${round.score} points, but guesses came in faster than a person can play, so this round cannot go on the leaderboard.`
+        : `${round.score} points`
+      : "A practice round, so no points"
     : answer
       ? "No points this round."
       : "You are offline, so the answer cannot be shown. No points this round.";
 
   const prefs = getSettings();
-  const flagged = ranked && round.solved && round.leaderboard_ok === false;
   const canSubmit = ranked && round.solved && !flagged;
-  if (flagged) {
-    $("resultScore").textContent += " Guesses came in faster than a person can play, so this round cannot go on the leaderboard.";
-  }
   $("submitForm").classList.toggle("hidden", !canSubmit);
   $("submitted").classList.add("hidden");
   $("submitMsg").textContent = "";

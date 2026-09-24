@@ -34,7 +34,7 @@
 // 5. wordlist.json is precached. Without it there are no practice rounds,
 //    and practice rounds are what this site plays offline.
 
-const VERSION = "wordle-v4";
+const VERSION = "wordle-v5";
 
 const SHELL = `wordle-shell-${VERSION}`;
 
