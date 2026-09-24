@@ -79,7 +79,7 @@ started it, and the answer is only in a reply once the round is over.
 | `POST /api/round/guess` | `round_id, client_key, guess` | the round view, with the new row |
 | `POST /api/round/state` | `round_id, client_key` | the round view |
 | `POST /api/round/giveup` | `round_id, client_key` | the round view, with `answer` |
-| `POST /api/leaderboard/submit` | `round_id, name` | `name, rank, best_score, total, rounds, total_rank` |
+| `POST /api/leaderboard/submit` | `round_id, client_key, name` | `name, rank, best_score, total, rounds, total_rank` |
 | `POST /api/leaderboard/name` | `name` | `name`, cleaned, or a `400` saying why not |
 | `GET /api/leaderboard` | `?board=best` (default) or `?board=total` | `board, entries`, cached 30 s |
 | `POST /api/stats` | `client_key` | `played, wins, current_streak, best_streak, distribution` |
@@ -105,8 +105,30 @@ The round view:
 Errors are `{ "error": code, "message"? }` with a matching status: `400` bad
 input or a guess the rules refuse (`wrong_length`, `not_in_list`,
 `hard_mode`, each with a message to show), `404` no such round, `409` round
-over or busy, `410` round or submission more than a day old, `503` Supabase
-not configured.
+over, busy or flagged, `410` round or submission more than a day old, `503`
+Supabase not configured.
+
+Once a round is over the view also has `answer`, and `leaderboard_ok`: false
+on a solved round means the anti-cheat flagged it.
+
+## Anti-cheat
+
+Kept simple, and all on the server:
+
+- The answer is never in a reply while the round is live, and the score is
+  read from the round, never from a request.
+- Every guess's arrival time is kept in `guess_times`. A guess that arrives
+  less than `FASTEST_GUESS_MS` (500 ms, in `_lib/game.js`) after the round
+  started or after the previous guess sets `flag = 'too_fast'`. People read
+  and type; scripts do not. Half a second leaves room for a fast typist with
+  a memorised opener, or with reduced motion on.
+- A flagged round is not refused or slowed: it plays on and counts in the
+  player's stats, so a script learns nothing mid-round. It only cannot be
+  submitted, and the result says why.
+- Submitting needs the `client_key` that played the round. Another browser's
+  round reads as `404`.
+
+There is no rate limiting.
 
 | Score | |
 | --- | --- |
@@ -122,7 +144,7 @@ anyone who picks the same name shares its entry.
 | File | What it is |
 | --- | --- |
 | `round/*.js`, `leaderboard/*.js`, `stats.js` | The endpoints. |
-| `_lib/game.js` | Ranked round rules, the round view, optimistic updates. |
+| `_lib/game.js` | Ranked round rules, the speed check, the round view, optimistic updates. |
 | `_lib/words.js` | `wordlist.json`, loaded with `require` so Vercel bundles it. |
 | `_lib/http.js` | Input checks and error replies. |
 | `_lib/names.js` | Leaderboard name cleaning and the word filter. |

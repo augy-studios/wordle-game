@@ -66,7 +66,8 @@ export const api = {
   guess: (roundId, guess) => round("guess", roundId, { guess }),
   giveUp: (roundId) => round("giveup", roundId),
   checkName: (name) => call("POST", "/api/leaderboard/name", { name }),
-  submit: (roundId, name) => call("POST", "/api/leaderboard/submit", { round_id: roundId, name }),
+  submit: (roundId, name) =>
+    call("POST", "/api/leaderboard/submit", { round_id: roundId, client_key: clientKey(), name }),
   leaderboard: (board) => call("GET", `/api/leaderboard?board=${encodeURIComponent(board)}`),
   stats: () => call("POST", "/api/stats", { client_key: clientKey() }),
 };

@@ -11,6 +11,18 @@ import { hasWord, pickWord, wordLengths } from "./words.js";
 // guess in it past that, it counts as a loss in the player's stats.
 export const ROUND_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Anti-cheat. Between one guess and the next a person reads the reply and
+// types a word and Enter; a script sends in milliseconds. A guess that
+// arrives sooner than this after the round started, or after the previous
+// guess, flags the round: it plays on and counts in stats, but cannot go on
+// the leaderboard. Refusing the guess instead would only teach a script to
+// wait; flagging keeps the check quiet.
+//
+// Half a second, not more: a fast typist with a memorised opener, or with
+// reduced motion on so no tiles flip, can send a planned word in well under
+// a second, and must not be flagged for it.
+export const FASTEST_GUESS_MS = 500;
+
 const finished = (round) => round.solved || round.lost;
 const expired = (round, now) => now - Date.parse(round.created_at) > ROUND_TTL_MS;
 
@@ -37,7 +49,10 @@ export function assertPlayable(round, now = Date.now()) {
   if (expired(round, now)) throw new HttpError(410, "round_expired", "This round has expired. Start a new one.");
 }
 
-export function applyGuess(round, text) {
+// `at` is when the request arrived, taken once before any retry. The round's
+// created_at is the database's clock and `at` is this function's; both are
+// NTP synced, and the skew is far below FASTEST_GUESS_MS.
+export function applyGuess(round, text, at = Date.now()) {
   const guess = normaliseWord(text);
   if (!/^[a-z]+$/.test(guess) || guess.length !== round.length) {
     throw new HttpError(400, "wrong_length", `This word has ${round.length} letters.`);
@@ -47,6 +62,12 @@ export function applyGuess(round, text) {
     const problem = hardModeProblem(guess, rowsOf(round));
     if (problem) throw new HttpError(400, "hard_mode", `Hard mode: ${problem}`);
   }
+
+  // Only guesses that count are timed: a refused one never reaches here.
+  const times = round.guess_times ?? [];
+  const previous = Date.parse(times.at(-1) ?? round.created_at);
+  if (at - previous < FASTEST_GUESS_MS) round.flag ??= "too_fast";
+  round.guess_times = [...times, new Date(at).toISOString()];
 
   round.guesses = [...round.guesses, guess];
   if (guess === round.answer) {
@@ -85,11 +106,16 @@ export function view(round, now = Date.now()) {
     expired: !over && expired(round, now),
     created_at: round.created_at,
   };
-  if (over) out.answer = round.answer;
+  if (over) {
+    out.answer = round.answer;
+    // Told only once nothing can change, so it cannot be watched for while
+    // playing. The page uses it to say why there is no leaderboard form.
+    out.leaderboard_ok = round.solved && !round.flag;
+  }
   return out;
 }
 
-const WRITABLE = ["guesses", "solved", "lost", "gave_up", "score", "finished_at"];
+const WRITABLE = ["guesses", "guess_times", "flag", "solved", "lost", "gave_up", "score", "finished_at"];
 
 export async function loadRound(id, clientKey) {
   const rows = await rest(`wordle_rounds?id=eq.${id}&select=*`);

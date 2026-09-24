@@ -53,6 +53,9 @@ function fromView(v) {
     score: v.score,
     answer: v.answer ?? null,
     expired: Boolean(v.expired),
+    // Present once the round is over. False on a solved round means the
+    // anti-cheat flagged it.
+    leaderboard_ok: v.leaderboard_ok,
   };
 }
 
@@ -465,7 +468,11 @@ function finish() {
       : "You are offline, so the answer cannot be shown. No points this round.";
 
   const prefs = getSettings();
-  const canSubmit = ranked && round.solved;
+  const flagged = ranked && round.solved && round.leaderboard_ok === false;
+  const canSubmit = ranked && round.solved && !flagged;
+  if (flagged) {
+    $("resultScore").textContent += " Guesses came in faster than a person can play, so this round cannot go on the leaderboard.";
+  }
   $("submitForm").classList.toggle("hidden", !canSubmit);
   $("submitted").classList.add("hidden");
   $("submitMsg").textContent = "";
@@ -502,7 +509,7 @@ async function submitAs(name, auto = false) {
     else if (auto && err.status === 400) msg.textContent = "Your saved name was refused, so this round was not added. Change it in Settings.";
     else if (auto && err.status !== 409 && err.status !== 410) msg.textContent = "This round could not be added automatically. Try the button.";
     else msg.textContent = err.message || "That did not go through. Try again in a moment.";
-    if (err.code === "already_submitted" || err.code === "expired") $("submitForm").classList.add("hidden");
+    if (["already_submitted", "expired", "flagged"].includes(err.code)) $("submitForm").classList.add("hidden");
     else $("submitBtn").disabled = false;
   }
 }

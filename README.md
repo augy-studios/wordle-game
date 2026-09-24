@@ -40,13 +40,21 @@ Practice rounds count in the device's stats but never reach the leaderboard.
 Both use one rules file, `main-site/js/rules.js`, which the API imports too,
 so the two cannot mark a guess differently.
 
+**Anti-cheat.** The answer never reaches the browser during a ranked round,
+and the score is worked out on the server. On top of that, the server times
+every guess: one that arrives less than half a second after the round
+started, or after the previous guess, is faster than a person can play, and
+flags the round. A flagged round plays on and counts in stats but cannot go
+on the leaderboard. Only the browser that played a round can submit it.
+
 **Abandoning is a loss.** Starting a new ranked round ends any other live one
 for that browser: one with a guess in it becomes a loss, one without is
 deleted. Giving up takes two taps.
 
 ## First setup
 
-1. Run `migrations/001_wordle_schema.sql` in the Supabase SQL editor.
+1. Run `migrations/001_wordle_schema.sql`, then
+   `migrations/002_wordle_anticheat.sql`, in the Supabase SQL editor.
 2. On the Vercel project (root directory `main-site`), set `SUPABASE_URL`
    and `SUPABASE_SERVICE_KEY` for the shared uwuapps project. See
    `main-site/.env.example`.
@@ -66,6 +74,7 @@ the next number.
 | File | What it does |
 | --- | --- |
 | `001_wordle_schema.sql` | The rounds and leaderboard tables, both leaderboard views, and the start round, submit, stats and prune functions. |
+| `002_wordle_anticheat.sql` | Guess times and a flag on each round; submit needs the playing browser's `client_key` and refuses flagged rounds. |
 
 Every table has row level security on with no policies. Only the service role
 key, used by the Vercel functions, can read or write.
