@@ -2,6 +2,32 @@
 <html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <title>Wordle | UwU Apps</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline.">
+
+    <script>
+        (function () {
+            var k = "wordle";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // Time based mode. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in js/theme.js.
+            document.documentElement.setAttribute("data-mode-preference", m);
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+            }
+
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+        })();
+    </script>
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-FMCYFTFPEL"></script>
     <script>
@@ -18,44 +44,268 @@
         crossorigin="anonymous"></script>
 
     <link rel="manifest" href="/manifest.json" />
-
-    <meta charset="utf-8">
-    <title>Wordle Game | UwU Apps</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A simple wordle app; view live wordle at a glance!">
+    <link rel="canonical" href="https://wordle.uwuapps.org/" />
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Wordle Game | UwU Apps" />
+    <meta property="og:url" content="https://wordle.uwuapps.org/" />
+    <meta property="og:title" content="Wordle | UwU Apps" />
     <meta property="og:site_name" content="UwU Apps" />
-    <meta property="og:description" content="A simple wordle app; view live wordle at a glance!" />
+    <meta property="og:description" content="Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline." />
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Jua">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preload" href="/wordlist.json" as="fetch" crossorigin="anonymous">
     <meta name="theme-color" content="#ccffcc" />
 
     <!-- Embed Image -->
-    <link rel="apple-touch-icon" href="/XWD-main.png">
+    <link rel="apple-touch-icon" href="/XWD-192.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:image:src" content="/XWD-main.png">
-    <meta property="og:image" content="/XWD-main.png" />
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script defer="" src="https://use.fontawesome.com/releases/v6.5.2/js/all.js"></script>
+    <meta name="twitter:image:src" content="https://wordle.uwuapps.org/XWD-512.png">
+    <meta property="og:image" content="https://wordle.uwuapps.org/XWD-512.png" />
 </head>
 
 <body>
-    Wordle Game
+    <div id="app" class="page">
+        <header class="topbar glass">
+            <div class="brand">
+                <img class="brand-icon" src="/XWD-192.png" alt="" width="28" height="28">
+                <h1 class="brand-name">Wordle</h1>
+            </div>
+            <div class="topbar-actions">
+                <button id="helpBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="How to play">
+                    <span data-icon="help"></span>
+                </button>
+                <button id="statsBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Stats">
+                    <span data-icon="chart"></span>
+                </button>
+                <button id="boardBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Leaderboard">
+                    <span data-icon="trophy"></span>
+                </button>
+                <button id="settingsBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Settings">
+                    <span data-icon="settings"></span>
+                </button>
+                <button id="themeBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Theme">
+                    <span data-icon="sun"></span>
+                </button>
+            </div>
+        </header>
 
-    <script src="/script.js"></script>
+        <main class="card glass game" aria-labelledby="gameTitle">
+            <h2 id="gameTitle" class="visually-hidden">Guess the word</h2>
 
-    <script>
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/sw.js');
-        }
-    </script>
-    
+            <!-- Shown first, while a round starts, and for anything that
+                 stops one from starting. -->
+            <section id="notice" class="panel notice">
+                <span class="card-icon" id="noticeIcon" data-icon="grid"></span>
+                <p id="noticeText">Picking a word.</p>
+                <div class="round-actions">
+                    <button id="noticeBtn" class="btn btn-primary pill" type="button">
+                        <span data-icon="refresh"></span><span id="noticeBtnLabel">Try again</span>
+                    </button>
+                    <button id="practiceBtn" class="btn btn-quiet pill hidden" type="button">
+                        <span data-icon="grid"></span>Practice instead
+                    </button>
+                </div>
+            </section>
+
+            <section id="play" class="panel play hidden">
+                <div class="round-meta">
+                    <span id="modeChip" class="chip"></span>
+                    <span id="hardChip" class="chip hidden">Hard mode</span>
+                    <label class="length-pick">
+                        <span class="visually-hidden">Word length</span>
+                        <select id="lengthSelect" class="field select"></select>
+                    </label>
+                </div>
+
+                <div id="board" class="guesses" role="group" aria-label="Guesses"></div>
+                <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+                <p id="announce" class="visually-hidden" role="status" aria-live="polite"></p>
+
+                <div id="keyboard" class="keyboard" role="group" aria-label="Keyboard"></div>
+
+                <div id="roundActions" class="round-actions">
+                    <button id="newBtn" class="btn btn-quiet pill" type="button">
+                        <span id="newIcon" data-icon="refresh"></span><span id="newLabel">New word</span>
+                    </button>
+                </div>
+
+                <section id="result" class="result hidden" aria-labelledby="resultTitle">
+                    <h3 id="resultTitle" class="result-title" tabindex="-1"></h3>
+                    <p id="resultScore" class="result-score"></p>
+
+                    <form id="submitForm" class="submit" autocomplete="off">
+                        <label for="nameInput" class="submit-label">Add this round to the leaderboard</label>
+                        <div class="name-row">
+                            <input id="nameInput" class="field" type="text" placeholder="Your name" maxlength="20"
+                                autocomplete="nickname" spellcheck="false" enterkeyhint="done">
+                            <button id="submitBtn" class="btn btn-primary" type="submit">Add</button>
+                        </div>
+                        <p id="submitMsg" class="submit-msg" role="status" aria-live="polite"></p>
+                        <p class="submit-note">Names are shared: anyone who picks the same one shares its entry.</p>
+                    </form>
+                    <div id="submitted" class="submitted hidden" role="status">
+                        <span class="ok-icon" data-icon="check"></span>
+                        <p id="submittedText"></p>
+                    </div>
+
+                    <div class="round-actions">
+                        <button id="playAgainBtn" class="btn btn-primary pill" type="button">
+                            <span data-icon="refresh"></span>Play again
+                        </button>
+                        <button id="resultBoardBtn" class="btn btn-quiet pill" type="button">
+                            <span data-icon="trophy"></span>Leaderboard
+                        </button>
+                        <button id="resultStatsBtn" class="btn btn-quiet pill" type="button">
+                            <span data-icon="chart"></span>Stats
+                        </button>
+                    </div>
+                </section>
+            </section>
+        </main>
+
+        <footer class="foot">
+            Made with <span class="footer-heart" data-icon="heartFilled" aria-label="love" role="img"></span> by Augy
+        </footer>
+    </div>
+
+    <!-- How to play -->
+    <div class="modal-backdrop hidden" id="helpModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+            <div class="modal-head">
+                <h2 id="helpModalTitle">How to play</h2>
+                <button class="icon-btn small" type="button" data-close-modal="helpModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <p class="help-text">Guess the hidden word in six tries. Type a word and press Enter. Each guess has to be
+                a real word of the right length.</p>
+            <div class="help-example" role="img" aria-label="Example: W in the right place, O in the wrong place, R not in the word">
+                <span class="tile filled correct">W</span><span class="tile filled present">O</span><span
+                    class="tile filled absent">R</span><span class="tile filled">D</span><span class="tile filled">S</span>
+            </div>
+            <ul class="help-list">
+                <li><strong>Green</strong>: the right letter in the right place.</li>
+                <li><strong>Gold</strong>: in the word, but somewhere else.</li>
+                <li><strong>Grey</strong>: not in the word.</li>
+            </ul>
+            <p class="modal-section-label">Ranked and practice</p>
+            <p class="help-text">Online, every round is ranked: solve it in one guess for 600 points, down to 100 on
+                the sixth, and add it to the leaderboard. Offline, you play practice rounds, which count in this
+                device's stats but not on the leaderboard.</p>
+            <p class="modal-section-label">Word length and hard mode</p>
+            <p class="help-text">Pick 4 to 14 letters on the game card; 5 is the classic. Hard mode, in Settings,
+                makes every green letter stay put and every gold letter get used again.</p>
+            <p class="help-text">Giving up, or leaving a ranked round once you have guessed, counts as a loss.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="modal-backdrop hidden" id="statsModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="statsModalTitle">
+            <div class="modal-head">
+                <h2 id="statsModalTitle">Stats</h2>
+                <button class="icon-btn small" type="button" data-close-modal="statsModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <div class="mode-toggle" id="statsTabs" role="tablist" aria-label="Record">
+                <button class="mode-btn" type="button" role="tab" data-stats="local" aria-selected="true" aria-controls="statsBody">This device</button>
+                <button class="mode-btn" type="button" role="tab" data-stats="ranked" aria-selected="false" aria-controls="statsBody">Ranked</button>
+            </div>
+            <div id="statsBody" class="stats-body" role="tabpanel"></div>
+            <p id="statsNote" class="mode-note"></p>
+        </div>
+    </div>
+
+    <!-- Leaderboard modal -->
+    <div class="modal-backdrop hidden" id="boardModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="boardModalTitle">
+            <div class="modal-head">
+                <h2 id="boardModalTitle">Leaderboard</h2>
+                <button class="icon-btn small" type="button" data-close-modal="boardModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <div class="mode-toggle" id="boardTabs" role="tablist" aria-label="Board">
+                <button class="mode-btn" type="button" role="tab" data-board="best" aria-selected="true" aria-controls="boardBody">Best score</button>
+                <button class="mode-btn" type="button" role="tab" data-board="total" aria-selected="false" aria-controls="boardBody">Total points</button>
+            </div>
+            <div id="boardBody" class="board-body" role="tabpanel"></div>
+            <p id="boardNote" class="mode-note"></p>
+            <p class="mode-note">Anyone who picks the same name shares its entry.</p>
+        </div>
+    </div>
+
+    <!-- Settings modal -->
+    <div class="modal-backdrop hidden" id="settingsModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+            <div class="modal-head">
+                <h2 id="settingsModalTitle">Settings</h2>
+                <button class="icon-btn small" type="button" data-close-modal="settingsModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+
+            <p class="modal-section-label">Leaderboard name</p>
+            <p id="savedName" class="saved-name"></p>
+            <form id="nameForm" class="name-row" autocomplete="off">
+                <label for="settingsName" class="visually-hidden">New leaderboard name</label>
+                <input id="settingsName" class="field" type="text" placeholder="New name" maxlength="20"
+                    autocomplete="nickname" spellcheck="false" enterkeyhint="done">
+                <button id="saveNameBtn" class="btn btn-primary" type="submit">Save</button>
+            </form>
+            <p id="nameMsg" class="mode-note" role="status" aria-live="polite"></p>
+            <button id="clearNameBtn" class="btn btn-quiet pill clear-name" type="button">Clear name</button>
+
+            <p class="modal-section-label">Rounds</p>
+            <button class="setting-toggle" type="button" role="switch" aria-checked="false" data-setting="auto_submit">
+                <span>Add solved rounds automatically</span>
+                <span class="switch-state"></span><span class="switch" aria-hidden="true"></span>
+            </button>
+            <p id="autoNote" class="mode-note">Save a name first to add rounds automatically.</p>
+            <button class="setting-toggle" type="button" role="switch" aria-checked="false" data-setting="hard_mode">
+                <span>Hard mode</span>
+                <span class="switch-state"></span><span class="switch" aria-hidden="true"></span>
+            </button>
+            <p class="mode-note">Green letters stay in place and gold letters must be used again. Changes apply from
+                the next round.</p>
+
+            <p class="mode-note">
+                The leaderboard name is filled in whenever you add a round, so it is always the last one you used.
+                With automatic adding on, every solved ranked round goes on the leaderboard under it. Settings are kept
+                in this browser.
+            </p>
+        </div>
+    </div>
+
+    <!-- Theme picker modal -->
+    <div class="modal-backdrop hidden" id="themeModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+            <div class="modal-head">
+                <h2 id="themeModalTitle">Theme</h2>
+                <button class="icon-btn small" type="button" data-close-modal="themeModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <p class="modal-section-label">Mode</p>
+            <div class="mode-toggle" id="modeToggle">
+                <button class="mode-btn" type="button" data-mode="light" aria-pressed="false"><span data-icon="sun"></span>Light</button>
+                <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false"><span data-icon="moon"></span>Dark</button>
+                <button class="mode-btn mode-btn-wide" type="button" data-mode="time" aria-pressed="false"><span data-icon="clock"></span>Time-based</button>
+            </div>
+            <p class="mode-note" id="modeNote" hidden></p>
+            <p class="modal-section-label">Brand colour</p>
+            <div class="swatch-grid" id="swatchGrid"></div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/app.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,10 @@
+{
+  "name": "wordle",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Wordle: the PWA and the game API, deployed on Vercel.",
+  "engines": {
+    "node": ">=18"
+  }
+}

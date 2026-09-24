@@ -1,7 +1,7 @@
 {
-    "name": "Wordle Game by UwU Apps",
-    "short_name": "Wordle Game",
-    "description": "A simple wordle app; view live wordle at a glance!",
+    "name": "Wordle by UwU Apps",
+    "short_name": "Wordle",
+    "description": "Guess the hidden word in six tries, from 4 to 14 letters. Ranked rounds go on the leaderboard, and practice rounds work offline.",
     "icons": [{
             "src": "XWD-192.png",
             "type": "image/png",
@@ -27,8 +27,8 @@
         }
     ],
     "start_url": "/",
-    "theme_color": "#cfc",
-    "background_color": "#cfc",
+    "theme_color": "#ccffcc",
+    "background_color": "#ccffcc",
     "display": "standalone",
     "display_override": ["fullscreen", "minimal-ui", "window-controls-overlay"],
     "orientation": "any",
@@ -37,8 +37,7 @@
     "scope": "/",
     "lang": "en",
     "categories": [
-        "entertainment",
-        "lifestyle",
-        "utilities"
+        "games",
+        "entertainment"
     ]
 }
